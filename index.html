@@ -504,9 +504,13 @@ The shortcut key to copy in Windows is ___
     <!-- TAB: RESULTS (Admin only — grade judgment included) -->
     <div id="tab-results" class="tab-panel" style="display:none;">
       <div class="card">
-        <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;">
+        <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;">
           <span>📊 Exam Results — All Participants</span>
-          <button class="btn btn-secondary btn-sm" onclick="refreshResultsTable()">↻ Refresh</button>
+          <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+            <button class="btn btn-secondary btn-sm" onclick="refreshResultsTable()">↻ Refresh</button>
+            <button class="btn btn-success btn-sm" onclick="exportResultsToExcel()">📥 Export to Excel</button>
+            <button class="btn btn-danger btn-sm" onclick="clearAllResults()">🗑 Clear Results</button>
+          </div>
         </div>
         <p style="color:var(--muted);font-size:0.85rem;margin-bottom:1rem;line-height:1.6;">
           Full results with grade judgment (Pass/Fail/Grade). This tab is only visible to the admin.
@@ -710,10 +714,9 @@ The shortcut key to copy in Windows is ___
         <div class="code-val" id="generatedCode">---</div>
         <div class="code-hint">Save this code — you'll need it to enter the exam and check your result later.</div>
       </div>
-      <!-- Copy + Email options -->
-      <div style="display:flex;gap:0.6rem;margin:0.75rem 0;flex-wrap:wrap;">
-        <button onclick="copyRegCode()" class="btn btn-secondary btn-sm" style="flex:1;">📋 Copy Code</button>
-        <button onclick="emailRegCode()" class="btn btn-secondary btn-sm" id="emailCodeBtn" style="flex:1;">✉️ Send to Email</button>
+      <!-- Copy code option -->
+      <div style="margin:0.75rem 0;">
+        <button onclick="copyRegCode()" class="btn btn-secondary btn-sm" style="width:100%;">📋 Copy Code</button>
       </div>
       <div id="copyCodeMsg" style="display:none;font-size:0.78rem;color:var(--accent2);text-align:center;margin-bottom:0.5rem;"></div>
       <div id="alreadyHaveCode" style="display:none;background:rgba(255,179,71,0.1);border:1px solid rgba(255,179,71,0.3);border-radius:8px;padding:0.75rem;margin-bottom:1rem;font-size:0.85rem;color:var(--warn);"></div>
@@ -978,21 +981,20 @@ The shortcut key to copy in Windows is ___
         <div class="rule-head">
           <span class="rule-num">2</span>
           <span class="rule-icon">🔄</span>
-          <strong>Page Refresh — Strictly Penalised</strong>
+          <strong>Page Refresh — Answers Preserved</strong>
         </div>
         <p class="rule-body">
-          <strong style="color:var(--danger)">Do NOT refresh or reload this page during the exam.</strong>
-          Refreshing will immediately erase all your answers and reset your timer.
+          If you refresh or reload this page during the exam, <strong style="color:var(--accent2)">your answers and remaining time are automatically saved and restored.</strong>
+          You will resume exactly where you left off.
         </p>
         <div style="
-          background:rgba(255,179,71,0.08);border-left:3px solid var(--warn);
+          background:rgba(0,229,176,0.06);border-left:3px solid var(--accent2);
           border-radius:0 8px 8px 0;padding:0.75rem 1rem;margin-top:0.6rem;
           font-size:0.84rem;line-height:1.7;color:var(--muted);
         ">
-          🟡 <strong style="color:var(--warn)">1st refresh:</strong> Your session is lost. You may re-enter once using your same code, but your previous progress is gone and the timer resets.<br>
-          🔴 <strong style="color:var(--danger)">2nd refresh:</strong> Your access code is <strong>permanently invalidated</strong> for this exam session. You will not be able to continue or retake the exam until the session ends and you register again.
+          ✅ <strong style="color:var(--accent2)">Network drops or browser hiccups?</strong> Simply refresh — your progress is safe.<br>
+          📋 Refresh incidents are silently logged for the administrator to review.
         </div>
-        <p class="rule-body" style="margin-top:0.6rem;">Every refresh incident is automatically logged and reported to the administrator.</p>
       </div>
 
       <!-- Rule 3: Fullscreen -->
@@ -1128,11 +1130,17 @@ The shortcut key to copy in Windows is ___
     <!-- Animated shield icon -->
     <div style="font-size:3rem;margin-bottom:0.75rem;animation:dtPulse 1.5s ease-in-out infinite;">🛡️</div>
     <div style="font-size:1.35rem;font-weight:700;color:#ff5c5c;margin-bottom:0.5rem;">Developer Tools Detected</div>
-    <p style="color:#a8bce8;font-size:0.92rem;line-height:1.7;margin-bottom:1.25rem;">
+    <p style="color:#a8bce8;font-size:0.92rem;line-height:1.7;margin-bottom:0.75rem;">
       Browser Developer Tools is currently <strong style="color:#eef2ff;">open</strong> on your device.
       This exam platform requires DevTools to be <strong style="color:#eef2ff;">fully closed</strong>
-      before you can continue. This protects the integrity of the examination.
+      before you can continue.
     </p>
+
+    <!-- Timer warning — key new message -->
+    <div style="background:rgba(255,92,92,0.13);border:1px solid rgba(255,92,92,0.4);border-radius:10px;padding:0.85rem 1rem;margin-bottom:1.1rem;font-size:0.88rem;color:#ff5c5c;font-weight:600;line-height:1.6;">
+      ⏱️ <strong>Your exam timer is still counting down.</strong><br>
+      <span style="font-weight:400;color:#a8bce8;">Refreshing this page will not help — this block will reappear until DevTools is genuinely closed. Every second here is time lost from your exam.</span>
+    </div>
 
     <!-- How to close instructions -->
     <div style="background:rgba(255,92,92,0.08);border:1px solid rgba(255,92,92,0.25);border-radius:12px;padding:1rem 1.2rem;margin-bottom:1.25rem;text-align:left;font-size:0.84rem;color:#a8bce8;line-height:2;">
@@ -1705,12 +1713,18 @@ function renderActivityLog() {
   if (!log.length) { el.innerHTML = '<p style="color:var(--muted);font-size:0.88rem;">No activity logged yet.</p>'; return; }
 
   const typeLabel = {
-    EXAM_REFRESH_1:           { label: '⚠ 1st Refresh',            cls: 'badge-refresh',   desc: 'Refreshed during exam (1st time) — session lost, one retry allowed' },
-    EXAM_REFRESH_2_NULLIFIED: { label: '⛔ 2nd Refresh / Nullified',cls: 'badge-nullified', desc: 'Refreshed during exam a 2nd time — code permanently invalidated for this session' },
-    CODE_NULLIFIED:           { label: '⛔ Code Nullified',         cls: 'badge-nullified', desc: 'Access code invalidated due to repeated page refresh abuse' },
+    EXAM_REFRESH:             { label: '🔄 Page Refresh',           cls: 'badge-refresh',   desc: 'Student refreshed during exam — answers and timer preserved, no penalty' },
+    EXAM_REFRESH_DT:          { label: '🔄 Refresh (DevTools Block)',cls: 'badge-nullified', desc: 'Student refreshed while DevTools block was active — block reapplied, timer kept running' },
+    EXAM_REFRESH_1:           { label: '🔄 Page Refresh',           cls: 'badge-refresh',   desc: 'Student refreshed during exam — answers and timer preserved, no penalty' },
+    EXAM_REFRESH_2_NULLIFIED: { label: '🔄 Page Refresh',           cls: 'badge-refresh',   desc: 'Student refreshed during exam — answers and timer preserved, no penalty' },
+    CODE_NULLIFIED:           { label: '⛔ Code Nullified',         cls: 'badge-nullified', desc: 'Access code manually invalidated by admin' },
+    RESULTS_EXPORTED:         { label: '📥 Results Exported',       cls: 'badge-refresh',   desc: 'Admin exported results to Excel/CSV file' },
+    RESULTS_CLEARED:          { label: '🗑 Results Cleared',         cls: 'badge-nullified', desc: 'Admin permanently deleted all result records — password verified' },
+    RESULTS_CLEAR_FAILED:     { label: '🔐 Clear Attempt Blocked',    cls: 'badge-nullified', desc: 'Someone tried to clear results but entered the wrong admin password' },
     DEVTOOLS_DETECTED:        { label: '🚫 DevTools (Lobby)',       cls: 'badge-nullified', desc: 'Student attempted to start exam with DevTools open — blocked at lobby' },
     DEVTOOLS_SITEWIDE:        { label: '🚫 DevTools (Site-wide)',   cls: 'badge-nullified', desc: 'DevTools detected while browsing the platform — hard block overlay shown' },
-    DEVTOOLS_EXAM:            { label: '🚫 DevTools in Exam',       cls: 'badge-nullified', desc: 'DevTools opened during active exam — exam auto-submitted immediately' },
+    DEVTOOLS_EXAM:            { label: '🚫 DevTools in Exam',       cls: 'badge-nullified', desc: 'DevTools opened during active exam — persistent block shown, timer kept running' },
+    DEVTOOLS_CLOSED:          { label: '✅ DevTools Closed',        cls: 'badge-refresh',   desc: 'Student closed DevTools — exam block lifted, exam resumed' },
     TAB_SWITCH:               { label: '🔀 Tab Switch',             cls: 'badge-refresh',   desc: 'Student switched tab or minimised window during exam' },
     FULLSCREEN_EXIT:          { label: '⛶ Fullscreen Exit',         cls: 'badge-refresh',   desc: 'Student exited fullscreen during exam' },
     FULLSCREEN_AUTOSUBMIT:    { label: '⛔ FS Auto-Submit',         cls: 'badge-nullified', desc: 'Exam auto-submitted due to repeated fullscreen exits' },
@@ -2427,8 +2441,6 @@ function registerStudent() {
     document.getElementById('alreadyHaveCode').style.display = 'block';
     document.getElementById('alreadyHaveCode').textContent = '⚠ You already registered with this name. Your existing code has been retrieved.';
     student = { name, id: sid, code: existingCode, email: students[existingCode].email || '' };
-    // Hide email button if no email on record
-    document.getElementById('emailCodeBtn').style.display = students[existingCode].email ? 'inline-flex' : 'none';
   } else {
     const code = genCode();
     students[code] = { name, sex, phone, email: email || '', studentId: sid, registeredAt: Date.now() };
@@ -2436,8 +2448,6 @@ function registerStudent() {
     document.getElementById('generatedCode').textContent = code;
     document.getElementById('alreadyHaveCode').style.display = 'none';
     student = { name, id: sid, code, email: email || '' };
-    // Hide email button if no email provided
-    document.getElementById('emailCodeBtn').style.display = email ? 'inline-flex' : 'none';
   }
 
   document.getElementById('regForm').style.display = 'none';
@@ -2589,9 +2599,17 @@ function startExamFromLobby() {
 function startTimer() {
   clearInterval(_ti);
   updateTimerDisplay();
+  let tickCount = 0;
   _ti = setInterval(() => {
     _tl--;
+    tickCount++;
     updateTimerDisplay();
+    // Save answers + startedAt every 10 seconds so refresh can recover accurately
+    if (tickCount % 10 === 0) {
+      try { localStorage.setItem('delight_exam_answers_' + student.code, JSON.stringify(answers)); } catch {}
+      // Update session with latest startedAt so timer resumes correctly
+      setActiveSession({ code: student.code, name: student.name, studentId: student.id, startedAt: _xs });
+    }
     if (_tl <= 0) { clearInterval(_ti); submitExam(true); }
   }, 1000);
 }
@@ -2635,9 +2653,17 @@ function renderExamQuestion() {
   if (q.type === 'fill') { const inp = document.getElementById('fillIn'); if (inp) inp.focus(); }
 }
 
-function selectMCQ(letter) { answers[_cq] = letter; renderExamQuestion(); }
+function selectMCQ(letter) {
+  answers[_cq] = letter;
+  // Auto-save answers to localStorage for refresh recovery
+  try { localStorage.setItem('delight_exam_answers_' + student.code, JSON.stringify(answers)); } catch {}
+  try { localStorage.setItem('delight_exam_cq_' + student.code, _cq); } catch {}
+  renderExamQuestion();
+}
 function saveFill(val) {
   if (val.trim()) answers[_cq] = val.trim(); else delete answers[_cq];
+  // Auto-save answers for refresh recovery
+  try { localStorage.setItem('delight_exam_answers_' + student.code, JSON.stringify(answers)); } catch {}
   document.getElementById('qDots').innerHTML = _xc.questions.map((_, i) =>
     `<div class="q-dot ${answers[i] !== undefined ? 'answered' : ''} ${i === _cq ? 'current' : ''}"></div>`
   ).join('');
@@ -2646,7 +2672,10 @@ function saveFill(val) {
 function navigate(dir) {
   const fill = document.getElementById('fillIn');
   if (fill) { if (fill.value.trim()) answers[_cq] = fill.value.trim(); else delete answers[_cq]; }
+  // Auto-save current question index and answers
+  try { localStorage.setItem('delight_exam_answers_' + student.code, JSON.stringify(answers)); } catch {}
   _cq = Math.max(0, Math.min(_xc.questions.length - 1, _cq + dir));
+  try { localStorage.setItem('delight_exam_cq_' + student.code, _cq); } catch {}
   renderExamQuestion();
 }
 function confirmSubmit() {
@@ -2662,6 +2691,10 @@ function submitExam(auto = false) {
   clearInterval(_ti);
   closeModal();
   clearActiveSession();
+  // Clean up all refresh-recovery and DevTools flag data — exam is done
+  try { localStorage.removeItem('delight_exam_answers_' + student.code); } catch {}
+  try { localStorage.removeItem('delight_exam_cq_'      + student.code); } catch {}
+  try { localStorage.removeItem('delight_dt_flagged_'   + student.code); } catch {}
   if (!student || !student.code) { showScreen('landing'); return; }
 
   const _tu = Math.round((Date.now() - _xs) / 1000);
@@ -2713,23 +2746,6 @@ function copyRegCode() {
   const done = () => { msg.textContent = '✅ Code copied to clipboard!'; msg.style.display = 'block'; setTimeout(() => { msg.style.display = 'none'; }, 2500); };
   if (navigator.clipboard) { navigator.clipboard.writeText(code).then(done).catch(done); }
   else { const ta = document.createElement('textarea'); ta.value = code; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); done(); }
-}
-
-function emailRegCode() {
-  const code  = document.getElementById('generatedCode').textContent;
-  const email = (student && student.email) ? student.email : '';
-  const title = (_xc && _xc.title) ? _xc.title : 'Delight Exam';
-  const subject = encodeURIComponent(`Your Exam Access Code — ${title}`);
-  const body = encodeURIComponent(
-    `Hello ${student ? student.name : ''},\n\n` +
-    `Your access code for the ${title} is:\n\n  ${code}\n\n` +
-    `Keep this code safe. You will need it to:\n` +
-    `  • Enter the exam lobby\n  • Check your result later\n\n` +
-    `If you lose this code, you can recover it on the "Check My Result" page\n` +
-    `using your registered name and phone number.\n\n` +
-    `Good luck!\n— Delight Professional Digital Exams`
-  );
-  window.open(`mailto:${email}?subject=${subject}&body=${body}`, '_blank');
 }
 
 // ─── RESULT LOOKUP ────────────────────────────────────────────
@@ -3142,6 +3158,235 @@ function refreshResultsTable() {
     }).join('') + '</tbody></table></div>';
 }
 
+// ─── EXPORT RESULTS TO EXCEL ──────────────────────────────────
+function exportResultsToExcel() {
+  const results  = getResults();
+  const keys     = Object.keys(results);
+  if (keys.length === 0) { alert('No results to export yet.'); return; }
+
+  const passScore = _xc.passScore || 60;
+  const title     = _xc.title     || 'Exam';
+
+  // Sort by score descending (same as table)
+  const sorted = keys.slice().sort((a, b) => (results[b].pct || 0) - (results[a].pct || 0));
+
+  // Build CSV rows — Excel opens CSV files natively
+  const escCSV = v => {
+    const s = String(v === null || v === undefined ? '' : v);
+    return s.includes(',') || s.includes('"') || s.includes('\n') ? '"' + s.replace(/"/g, '""') + '"' : s;
+  };
+
+  // Summary block at top
+  let passed = 0, failed = 0, totalPct = 0;
+  sorted.forEach(code => {
+    const r = results[code];
+    if ((r.pct || 0) >= passScore) passed++; else failed++;
+    totalPct += (r.pct || 0);
+  });
+  const avg = (totalPct / sorted.length).toFixed(1);
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
+  const timeStr = now.toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' });
+
+  const rows = [];
+
+  // Header info block
+  rows.push([escCSV('DELIGHT PROFESSIONAL DIGITAL EXAMS — RESULT SHEET')]);
+  rows.push([escCSV('Exam Title:'), escCSV(title)]);
+  rows.push([escCSV('Exported On:'), escCSV(dateStr + ' at ' + timeStr)]);
+  rows.push([escCSV('Pass Mark:'), escCSV(passScore + '%')]);
+  rows.push([escCSV('Total Submitted:'), escCSV(sorted.length)]);
+  rows.push([escCSV('Passed:'), escCSV(passed), escCSV('Failed:'), escCSV(failed), escCSV('Average Score:'), escCSV(avg + '%')]);
+  rows.push([]); // blank row spacer
+
+  // Column headers
+  rows.push([
+    'Rank','Student Name','Student ID','Access Code',
+    'Score (%)','Correct','Wrong','Skipped',
+    'Total Questions','Time Used (mm:ss)','Grade','Status',
+    'Submitted At'
+  ].map(escCSV));
+
+  // Data rows
+  sorted.forEach((code, idx) => {
+    const r  = results[code];
+    const gi = getGradeInfo(r.pct || 0, r.passScore || passScore);
+    const mm = Math.floor((r.timeUsed || 0) / 60);
+    const ss = String((r.timeUsed || 0) % 60).padStart(2, '0');
+    const submittedAt = r.submittedAt
+      ? new Date(r.submittedAt).toLocaleString('en-GB')
+      : '—';
+    rows.push([
+      '#' + (idx + 1),
+      r.name     || '—',
+      r.studentId|| '—',
+      code,
+      (r.pct     || 0) + '%',
+      r.correct  ?? '—',
+      r.wrong    ?? '—',
+      r.skipped  ?? '—',
+      (r.total   || ((r.correct||0)+(r.wrong||0)+(r.skipped||0))) || '—',
+      mm + ':' + ss,
+      gi.grade + ' — ' + gi.label,
+      r.pct >= (r.passScore || passScore) ? 'PASS' : 'FAIL',
+      submittedAt
+    ].map(escCSV));
+  });
+
+  // Convert rows to CSV string
+  const csv = '\uFEFF' + rows.map(r => Array.isArray(r) ? r.join(',') : r).join('\r\n');
+
+  // Trigger download
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  const safeTitle = title.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 40);
+  a.href     = url;
+  a.download = 'Results_' + safeTitle + '_' + dateStr.replace(/ /g,'_') + '.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+
+  logActivity({
+    type: 'RESULTS_EXPORTED',
+    code: '(admin)',
+    name: 'Admin',
+    note: 'Results exported to Excel/CSV — ' + sorted.length + ' records'
+  });
+}
+
+// ─── CLEAR ALL RESULTS ────────────────────────────────────────
+function clearAllResults() {
+  const results = getResults();
+  const count   = Object.keys(results).length;
+  if (count === 0) { alert('No results to clear.'); return; }
+
+  // Step 1 — first confirmation
+  if (!confirm(
+    '⚠️ WARNING: This will permanently delete ' + count + ' student result(s).\n\n' +
+    '✅ Activity logs will NOT be deleted.\n' +
+    '✅ Student registrations will NOT be deleted.\n\n' +
+    'Students will no longer be able to check their scores after this.\n\n' +
+    'Click OK to proceed to password verification.'
+  )) return;
+
+  // Step 2 — admin password double-verification modal
+  _showClearResultsPasswordModal(count);
+}
+
+function _showClearResultsPasswordModal(count) {
+  // Remove any existing modal
+  const existing = document.getElementById('clearResultsModal');
+  if (existing) existing.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'clearResultsModal';
+  modal.style.cssText = `
+    position:fixed;inset:0;z-index:99998;
+    background:rgba(10,15,40,0.92);
+    backdrop-filter:blur(10px);
+    display:flex;align-items:center;justify-content:center;
+    padding:1.5rem;font-family:'Sora',sans-serif;
+  `;
+  modal.innerHTML = `
+    <div style="
+      background:#1e2d70;border:2px solid #ff5c5c;
+      border-radius:20px;padding:2rem 2rem;
+      max-width:420px;width:100%;text-align:center;
+      box-shadow:0 0 60px rgba(255,92,92,0.3);
+    ">
+      <div style="font-size:2.5rem;margin-bottom:0.5rem;">🔐</div>
+      <div style="font-size:1.2rem;font-weight:700;color:#ff5c5c;margin-bottom:0.5rem;">
+        Admin Password Required
+      </div>
+      <p style="color:#a8bce8;font-size:0.88rem;line-height:1.7;margin-bottom:1.25rem;">
+        You are about to permanently delete <strong style="color:#eef2ff;">${count} result record(s)</strong>.
+        This action cannot be undone.<br><br>
+        Enter your admin password to confirm.
+      </p>
+      <div style="margin-bottom:0.75rem;text-align:left;">
+        <label style="font-size:0.8rem;color:#a8bce8;display:block;margin-bottom:0.4rem;">Admin Password</label>
+        <input type="password" id="clearResultsPwInput"
+          placeholder="Enter admin password"
+          style="width:100%;box-sizing:border-box;background:#0f1f5c;border:1px solid #3554c0;
+                 border-radius:8px;padding:0.7rem 1rem;color:#eef2ff;font-size:0.95rem;
+                 font-family:'Sora',sans-serif;outline:none;"
+          onkeydown="if(event.key==='Enter')_verifyClearResultsPassword(${count})"/>
+      </div>
+      <div id="clearResultsPwError" style="
+        display:none;font-size:0.82rem;color:#ff5c5c;
+        background:rgba(255,92,92,0.1);border:1px solid rgba(255,92,92,0.3);
+        border-radius:8px;padding:0.5rem 0.75rem;margin-bottom:0.75rem;
+      "></div>
+      <div style="display:flex;gap:0.75rem;margin-top:0.5rem;">
+        <button onclick="_closeClearResultsModal()" style="
+          flex:1;background:transparent;border:1px solid #3554c0;
+          border-radius:10px;padding:0.75rem;color:#a8bce8;
+          font-family:'Sora',sans-serif;font-size:0.88rem;cursor:pointer;
+        ">Cancel</button>
+        <button onclick="_verifyClearResultsPassword(${count})" style="
+          flex:1;background:#ff5c5c;border:none;border-radius:10px;
+          padding:0.75rem;color:#fff;font-weight:700;
+          font-family:'Sora',sans-serif;font-size:0.88rem;cursor:pointer;
+        ">🗑 Confirm Delete</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  setTimeout(() => {
+    const inp = document.getElementById('clearResultsPwInput');
+    if (inp) inp.focus();
+  }, 100);
+}
+
+function _verifyClearResultsPassword(count) {
+  const inp    = document.getElementById('clearResultsPwInput');
+  const errEl  = document.getElementById('clearResultsPwError');
+  const entered = inp ? inp.value : '';
+
+  if (!entered) {
+    errEl.textContent = '❌ Please enter your admin password.';
+    errEl.style.display = 'block'; return;
+  }
+
+  // Get current admin password
+  const correctPw = localStorage.getItem(SK.adminPw) || 'admin1234';
+
+  if (entered !== correctPw) {
+    errEl.textContent = '❌ Incorrect password. Results were NOT cleared.';
+    errEl.style.display = 'block';
+    inp.value = '';
+    inp.focus();
+    // Log the failed attempt
+    logActivity({
+      type: 'RESULTS_CLEAR_FAILED',
+      code: '(admin)',
+      name: 'Admin',
+      note: 'Attempted to clear results but entered wrong password'
+    });
+    return;
+  }
+
+  // Password correct — proceed with deletion
+  _closeClearResultsModal();
+  localStorage.removeItem(SK.results);
+  fbRemove(FB_PATH.results);
+  refreshResultsTable();
+  logActivity({
+    type: 'RESULTS_CLEARED',
+    code: '(admin)',
+    name: 'Admin',
+    note: count + ' result record(s) permanently deleted — password verified'
+  });
+  alert('✅ ' + count + ' result(s) cleared successfully.');
+}
+
+function _closeClearResultsModal() {
+  const modal = document.getElementById('clearResultsModal');
+  if (modal) modal.remove();
+}
+
 // ─── INIT ─────────────────────────────────────────────────────
 toggleQType();
 loadQuestions();
@@ -3190,53 +3435,108 @@ checkDevToolsContinuously();
 })();
 
 // ─── REFRESH DETECTION ───────────────────────────────────────
+// New behaviour: answers + timer are preserved on refresh.
+// Refresh is logged silently for admin visibility — no penalty.
+// Exception: if DevTools flag is set, block screen reappears immediately.
 (function detectRefresh() {
   const sess = getActiveSession();
   if (!sess) return; // Not mid-exam — nothing to do
 
-  // A session was active when page loaded = this is a refresh during exam
   const code      = sess.code;
   const name      = sess.name;
   const studentId = sess.studentId;
+  const startedAt = sess.startedAt;
 
-  // How many times have they refreshed?
+  // ── Check if DevTools was open when they refreshed ───────────
+  let dtFlagged = false;
+  try { dtFlagged = !!localStorage.getItem('delight_dt_flagged_' + code); } catch {}
+
+  // Increment refresh count for admin visibility only (no penalty)
   const prevCount = getRefreshCount(code);
   const newCount  = prevCount + 1;
   setRefreshCount(code, newCount);
 
-  // Log this event
+  // Log the refresh
   logActivity({
-    type: newCount === 1 ? 'EXAM_REFRESH_1' : 'EXAM_REFRESH_2_NULLIFIED',
+    type: dtFlagged ? 'EXAM_REFRESH_DT' : 'EXAM_REFRESH',
     code, name, studentId,
-    refreshNumber: newCount
+    refreshNumber: newCount,
+    note: dtFlagged
+      ? 'Refreshed while DevTools block was active — block reapplied, timer still running'
+      : 'Answers and timer preserved — no penalty applied'
   });
 
-  if (newCount >= 2) {
-    // Second refresh — nullify code immediately
-    nullifyCode(code, name, studentId);
+  // Restore student identity
+  student = { name, id: studentId, code };
+
+  // Restore saved answers from localStorage
+  try {
+    const saved = JSON.parse(localStorage.getItem('delight_exam_answers_' + code) || '{}');
+    answers = saved;
+  } catch { answers = {}; }
+
+  // Restore current question index
+  try {
+    _cq = parseInt(localStorage.getItem('delight_exam_cq_' + code) || '0');
+  } catch { _cq = 0; }
+
+  // Restore timer — calculate remaining time from startedAt (timer never stopped)
+  const elapsed = Math.floor((Date.now() - startedAt) / 1000);
+  const cfg = JSON.parse(localStorage.getItem(SK.config) || '{}');
+  const duration = cfg.duration || _xc.duration || 60;
+  _tl = Math.max(0, duration * 60 - elapsed);
+  _xs = startedAt;
+
+  // If time already expired, auto-submit immediately (even if DevTools still open)
+  if (_tl <= 0) {
+    try { localStorage.removeItem('delight_dt_flagged_' + code); } catch {}
     clearActiveSession();
-    // Show nullified modal (no way back in)
-    setTimeout(() => {
-      document.getElementById('refreshWarnMsg').innerHTML =
-        `<strong style="color:var(--danger)">${name}</strong>, your access code <strong style="font-family:monospace">${code}</strong> has been <strong style="color:var(--danger)">permanently invalidated</strong> because you refreshed the page a second time during the exam.<br><br>Your previous exam progress has been lost and your code cannot be used again for this session. Please wait for the current exam window to close and register again with a new code.`;
-      document.getElementById('refreshWarnBtns').innerHTML =
-        `<button class="btn btn-secondary" onclick="document.getElementById('refreshWarnModal').classList.add('hidden');showScreen('landing')">← Go to Home</button>`;
-      document.getElementById('refreshWarnModal').classList.remove('hidden');
-    }, 300);
-  } else {
-    // First refresh — warn, allow one more attempt
-    clearActiveSession(); // clear so lobby can re-enter
-    // Restore student state from session
-    student = { name, id: studentId, code };
-    setTimeout(() => {
-      document.getElementById('refreshWarnMsg').innerHTML =
-        `<strong style="color:var(--warn)">${name}</strong>, refreshing during the exam has reset your timer and erased your answers — your previous progress is <strong>lost and not saved</strong>.<br><br>This is your <strong>1st</strong> and only allowed refresh. You may re-enter the exam once by verifying your code again. A <strong>second refresh</strong> will permanently invalidate your code for this session.<br><br><em>This incident has been logged.</em>`;
-      document.getElementById('refreshWarnBtns').innerHTML =
-        `<button class="btn btn-primary" onclick="document.getElementById('refreshWarnModal').classList.add('hidden');goToLobbyAfterRefresh()">Re-enter Exam →</button>
-         <button class="btn btn-secondary" onclick="document.getElementById('refreshWarnModal').classList.add('hidden');showScreen('landing')">← Home</button>`;
-      document.getElementById('refreshWarnModal').classList.remove('hidden');
-    }, 300);
+    submitExam(true);
+    return;
   }
+
+  // Resume exam — reload questions then restore exam screen
+  const resumeExam = () => {
+    const plainQuestions = JSON.parse(localStorage.getItem(SK.questions) || '[]');
+    if (plainQuestions.length > 0) {
+      encryptAllQuestions(plainQuestions);
+    } else if (_fbConnected && _fbRef) {
+      _fbRef.child(FB_PATH.questions).once('value').then(snap => {
+        const val = snap.val();
+        const qs  = val ? (Array.isArray(val) ? val : Object.values(val)) : [];
+        if (qs.length > 0) { localStorage.setItem(SK.questions, JSON.stringify(qs)); encryptAllQuestions(qs); }
+        finishResume();
+      }).catch(() => finishResume());
+      return;
+    }
+    finishResume();
+  };
+
+  const finishResume = () => {
+    _xc.title     = JSON.parse(localStorage.getItem(SK.config) || '{}').title     || _xc.title;
+    _xc.duration  = JSON.parse(localStorage.getItem(SK.config) || '{}').duration  || _xc.duration;
+    _xc.passScore = JSON.parse(localStorage.getItem(SK.config) || '{}').passScore || _xc.passScore;
+
+    document.getElementById('examHeaderTitle').textContent = _xc.title;
+    document.getElementById('examHeaderMeta').textContent  =
+      `${name}${studentId ? ' · ' + studentId : ''} · Code: ${code} · (Resumed after refresh)`;
+
+    showScreen('exam');
+    renderExamQuestion();
+    startTimer(); // Timer resumes from remaining _tl — time never paused
+
+    // If DevTools was flagged, reapply the block screen immediately
+    // Timer is already running underneath — student loses time while blocked
+    if (dtFlagged) {
+      _devtoolsOpen = true;
+      _showSiteWideDevToolsBlock();
+      // Continuous polling will lift block when DevTools is actually closed
+    } else {
+      requestFullscreen();
+    }
+  };
+
+  resumeExam();
 })();
 
 // ══════════════════════════════════════════
@@ -3320,23 +3620,20 @@ function _onDevToolsOpened() {
       name:      student ? student.name : '(no session)',
       studentId: student ? student.id   : '',
       reason: onExam
-        ? 'DevTools opened DURING active exam — exam auto-submitted'
+        ? 'DevTools opened DURING active exam — exam blocked, timer running'
         : 'DevTools opened while browsing the exam platform (outside exam)'
     });
   }
 
-  if (onExam && !_devtoolsExamAction) {
-    // ── During exam: auto-submit immediately ──────────────────
-    _devtoolsExamAction = true;
-    clearInterval(_ti);
-    clearInterval(_devtoolsCheckInterval);
-    // Show exam-specific devtools modal first, then submit
-    document.getElementById('devtoolsExamModal').classList.remove('hidden');
-    setTimeout(() => {
-      document.getElementById('devtoolsExamModal').classList.add('hidden');
-      submitExam(true);
-    }, 1800);
-  } else if (!onExam) {
+  if (onExam) {
+    // ── During exam: persistent block — timer keeps running ───
+    // Save flag so refresh cannot escape the block
+    if (student && student.code) {
+      try { localStorage.setItem('delight_dt_flagged_' + student.code, '1'); } catch {}
+    }
+    // Pause rendering but NOT the timer — time keeps counting down
+    _showSiteWideDevToolsBlock();
+  } else {
     // ── All other screens: show hard block overlay ────────────
     _showSiteWideDevToolsBlock();
   }
@@ -3350,7 +3647,28 @@ function _onDevToolsClosed() {
   const onAdmin = document.getElementById('admin').classList.contains('active');
   if (onAdmin) return;
 
+  // Clear the DevTools flag — student genuinely closed it
+  if (student && student.code) {
+    try { localStorage.removeItem('delight_dt_flagged_' + student.code); } catch {}
+  }
+
   _hideSiteWideDevToolsBlock();
+
+  // Log that DevTools was closed
+  logActivity({
+    type: 'DEVTOOLS_CLOSED',
+    code:      student ? student.code : '(no session)',
+    name:      student ? student.name : '(no session)',
+    studentId: student ? student.id   : '',
+    reason:    'DevTools closed — exam block lifted, exam resumed'
+  });
+
+  // If student was mid-exam, make sure exam screen is still active and timer running
+  const onExam = document.getElementById('exam').classList.contains('active');
+  if (onExam && _ti === null) {
+    // Timer was somehow cleared — restart it with remaining time
+    startTimer();
+  }
 
   // Re-enable start button if on lobby
   const onLobby = document.getElementById('student-lobby').classList.contains('active');
