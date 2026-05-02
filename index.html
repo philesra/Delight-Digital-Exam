@@ -3099,14 +3099,24 @@ toggleQType();
 loadQuestions();
 updateLandingCountdown();
 
-// ── Auto-connect Firebase if config was saved previously ──────
+// ── Hardcoded Firebase config — auto-connects on every device ─
+const HARDCODED_FB_CONFIG = {
+  apiKey:      "AIzaSyAu5S8_kWNabaBT32rGt_pfRgqCIRZxvDw",
+  authDomain:  "delight-pro-digital-exam.firebaseapp.com",
+  databaseURL: "https://delight-pro-digital-exam-default-rtdb.firebaseio.com/",
+  projectId:   "delight-pro-digital-exam",
+  appId:       "1:484376325708:web:7134df65964621cb47cee9",
+};
+
 (function autoInitFirebase() {
-  const cfg = getFirebaseConfig();
-  if (cfg && cfg.databaseURL) {
-    try {
-      initFirebase(cfg);
-    } catch(e) {
-      console.warn('[Firebase] Auto-init failed:', e);
+  try {
+    saveFirebaseConfigLocally(HARDCODED_FB_CONFIG);
+    initFirebase(HARDCODED_FB_CONFIG);
+  } catch(e) {
+    console.warn("[Firebase] Hardcoded init failed:", e);
+    const cfg = getFirebaseConfig();
+    if (cfg && cfg.databaseURL) {
+      try { initFirebase(cfg); } catch(e2) { console.warn("[Firebase] Fallback also failed:", e2); }
     }
   }
 })();
