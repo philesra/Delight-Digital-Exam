@@ -622,8 +622,27 @@ The shortcut key to copy in Windows is ___
   <div class="entry-card">
     <div style="text-align:center;margin-bottom:1.5rem;">
       <div style="font-size:2.2rem;margin-bottom:0.5rem;">📋</div>
-      <h2>Student Registration</h2>
-      <p>Register to receive your unique access code for the exam.</p>
+      <h2>Student Portal</h2>
+      <p>New student? Register below. Already have a code? Enter it directly.</p>
+    </div>
+
+    <!-- Returning student: enter existing code -->
+    <div id="returningStudentBox" style="margin-bottom:1.2rem;padding:1rem;background:rgba(0,229,176,0.07);border:1px solid rgba(0,229,176,0.25);border-radius:12px;">
+      <p style="font-size:0.88rem;font-weight:600;color:var(--accent2);margin-bottom:0.6rem;">&#128273; Already have a code?</p>
+      <div style="display:flex;gap:0.6rem;align-items:stretch;">
+        <input type="text" id="returningCode" placeholder="Enter your code e.g. DLT-4829"
+          style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:0.6rem 0.9rem;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:0.95rem;outline:none;letter-spacing:0.05em;"
+          oninput="this.value=this.value.toUpperCase()"
+          onkeydown="if(event.key==='Enter')enterWithExistingCode()"/>
+        <button class="btn btn-success btn-sm" onclick="enterWithExistingCode()" style="white-space:nowrap;padding:0.6rem 1rem;">Enter Exam &rarr;</button>
+      </div>
+      <div id="returningCodeError" style="display:none;font-size:0.8rem;color:var(--danger);margin-top:0.5rem;"></div>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1.2rem;">
+      <div style="flex:1;height:1px;background:var(--border);"></div>
+      <span style="font-size:0.78rem;color:var(--muted);white-space:nowrap;">OR REGISTER AS NEW STUDENT</span>
+      <div style="flex:1;height:1px;background:var(--border);"></div>
     </div>
 
     <!-- Step 1: Check window -->
@@ -2425,6 +2444,35 @@ function registerStudent() {
   document.getElementById('regSuccess').style.display = 'block';
 }
 
+// Returning student — enters their existing code directly from the student portal
+function enterWithExistingCode() {
+  const codeInput = document.getElementById('returningCode');
+  const errEl     = document.getElementById('returningCodeError');
+  const code      = (codeInput ? codeInput.value.trim().toUpperCase() : '');
+
+  errEl.style.display = 'none';
+
+  if (!code) {
+    errEl.textContent = '❌ Please enter your access code.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  // Check Firebase/local students for this code
+  const students = getStudents();
+  if (!students[code]) {
+    errEl.textContent = '❌ Code not found. Check your code and try again, or register as a new student below.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  // Valid code found — load student into memory and go to lobby
+  student = { ...students[code], code };
+  showScreen('student-lobby');
+  document.getElementById('lobbyCode').value = code;
+  verifyLobbyCode();
+}
+
 function goToLobbyWithCode() {
   showScreen('student-lobby');
   document.getElementById('lobbyCode').value = student.code;
@@ -3108,7 +3156,8 @@ const HARDCODED_FB_CONFIG = {
   appId:       "1:484376325708:web:7134df65964621cb47cee9",
 };
 
-(function autoInitFirebase() {
+// Defer init until window fully loaded so Firebase SDK scripts are ready
+window.addEventListener('load', function autoInitFirebase() {
   try {
     saveFirebaseConfigLocally(HARDCODED_FB_CONFIG);
     initFirebase(HARDCODED_FB_CONFIG);
@@ -3119,7 +3168,7 @@ const HARDCODED_FB_CONFIG = {
       try { initFirebase(cfg); } catch(e2) { console.warn("[Firebase] Fallback also failed:", e2); }
     }
   }
-})();
+});
 
 // ── Load saved Firebase config into admin settings UI ─────────
 // (runs when admin tab becomes active — delayed so DOM is ready)
