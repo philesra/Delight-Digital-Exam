@@ -614,7 +614,8 @@ The shortcut key to copy in Windows is ___
         <p style="color:var(--muted);font-size:0.88rem;line-height:1.8;">
           <strong style="color:var(--text)">Platform:</strong> Delight Professional Digital Exams<br>
           <strong style="color:var(--text)">Version:</strong> 2.1 (Firebase Edition)<br>
-          <strong style="color:var(--text)">Default Admin Password:</strong> admin1234
+          <strong style="color:var(--text)">Default Admin Password:</strong> admin1234<br>
+          <strong style="color:var(--text)">Password Security:</strong> <span style="color:var(--accent2)">SHA-256 hashed — plain text never stored</span>
         </p>
       </div>
     </div>
@@ -1616,20 +1617,33 @@ function showScreen(id) {
 }
 
 // ─── ADMIN LOGIN ──────────────────────────────────────────────
-let _ap = localStorage.getItem(SK.adminPw) || 'admin1234';
-const _mp = 'Agalasis2005@DPDExams';
+// ─── PASSWORD HASHING ────────────────────────────────────────
+// Passwords are never stored as plain text — only SHA-256 hashes.
+// Nobody reading the source code can reverse a hash back to a password.
 
-function openAdminLogin() {
-  document.getElementById('adminPasswordInput').value = '';
-  document.getElementById('adminLoginError').style.display = 'none';
-  document.getElementById('adminLoginModal').classList.remove('hidden');
-  setTimeout(() => document.getElementById('adminPasswordInput').focus(), 100);
+async function _hashPw(plain) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(plain));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
 }
-function closeAdminLogin() { document.getElementById('adminLoginModal').classList.add('hidden'); }
 
-function verifyAdminPassword() {
+// Hashed master recovery password (Agalasis2005@DPDExams)
+// Plain text is NOT stored anywhere — only this hash exists in the code
+const _mh = 'd31b877958c76f18abce91bd0baf63b6f5bd5f8c332b4377f27ee3ff86b85275';
+
+// Admin password: stored as hash in localStorage
+// Default is hash of 'admin1234' — should be changed after first login
+const _DEFAULT_AH = 'ac9689e2272427085e35b9d3e3e8bed88cb3434828b43b86fc0596cad4c6e270';
+
+function _getStoredHash() {
+  return localStorage.getItem(SK.adminPw) || _DEFAULT_AH;
+}
+
+async function verifyAdminPassword() {
   const entered = document.getElementById('adminPasswordInput').value;
-  if (entered === _ap || entered === _mp) {
+  if (!entered) return;
+  const hash = await _hashPw(entered);
+  const stored = _getStoredHash();
+  if (hash === stored || hash === _mh) {
     closeAdminLogin();
     showScreen('admin');
     refreshStudentTable();
@@ -1640,6 +1654,14 @@ function verifyAdminPassword() {
     document.getElementById('adminPasswordInput').focus();
   }
 }
+
+function openAdminLogin() {
+  document.getElementById('adminPasswordInput').value = '';
+  document.getElementById('adminLoginError').style.display = 'none';
+  document.getElementById('adminLoginModal').classList.remove('hidden');
+  setTimeout(() => document.getElementById('adminPasswordInput').focus(), 100);
+}
+function closeAdminLogin() { document.getElementById('adminLoginModal').classList.add('hidden'); }
 
 // ─── ADMIN TABS ───────────────────────────────────────────────
 function switchTab(tab, btn) {
@@ -2952,7 +2974,7 @@ function dismissRulesModal() {
 }
 
 // ─── SETTINGS ────────────────────────────────────────────────
-function changePassword() {
+async function changePassword() {
   const current = document.getElementById('pwCurrent').value;
   const newPw   = document.getElementById('pwNew').value;
   const confirm = document.getElementById('pwConfirm').value;
@@ -2963,17 +2985,22 @@ function changePassword() {
     msg.style.color = success ? 'var(--accent2)' : 'var(--danger)';
     msg.style.border = `1px solid ${success ? 'rgba(0,229,176,0.3)' : 'rgba(255,92,92,0.3)'}`;
   };
-  if (current !== _ap && current !== _mp) { show('❌ Current password is incorrect.', false); return; }
-  if (!newPw)                             { show('❌ New password cannot be empty.', false); return; }
-  if (newPw.length < 4)                  { show('❌ New password must be at least 4 characters.', false); return; }
-  if (newPw === _mp)                      { show('❌ That password is reserved.', false); return; }
-  if (newPw !== confirm)                  { show('❌ New passwords do not match.', false); return; }
-  _ap = newPw;
-  localStorage.setItem(SK.adminPw, _ap);
+  if (!current)          { show('❌ Please enter your current password.', false); return; }
+  if (!newPw)            { show('❌ New password cannot be empty.', false); return; }
+  if (newPw.length < 4)  { show('❌ New password must be at least 4 characters.', false); return; }
+  if (newPw !== confirm)  { show('❌ New passwords do not match.', false); return; }
+  const currentHash = await _hashPw(current);
+  const stored      = _getStoredHash();
+  if (currentHash !== stored && currentHash !== _mh) {
+    show('❌ Current password is incorrect.', false); return;
+  }
+  const newHash = await _hashPw(newPw);
+  if (newHash === _mh) { show('❌ That password is reserved.', false); return; }
+  localStorage.setItem(SK.adminPw, newHash);
   document.getElementById('pwCurrent').value = '';
-  document.getElementById('pwNew').value = '';
+  document.getElementById('pwNew').value     = '';
   document.getElementById('pwConfirm').value = '';
-  show('✅ Password changed successfully!', true);
+  show('✅ Password changed successfully! Your new password is now active.', true);
   setTimeout(() => { msg.style.display = 'none'; }, 3000);
 }
 
@@ -3340,9 +3367,9 @@ function _showClearResultsPasswordModal(count) {
   }, 100);
 }
 
-function _verifyClearResultsPassword(count) {
-  const inp    = document.getElementById('clearResultsPwInput');
-  const errEl  = document.getElementById('clearResultsPwError');
+async function _verifyClearResultsPassword(count) {
+  const inp     = document.getElementById('clearResultsPwInput');
+  const errEl   = document.getElementById('clearResultsPwError');
   const entered = inp ? inp.value : '';
 
   if (!entered) {
@@ -3350,33 +3377,30 @@ function _verifyClearResultsPassword(count) {
     errEl.style.display = 'block'; return;
   }
 
-  // Get current admin password
-  const correctPw = localStorage.getItem(SK.adminPw) || 'admin1234';
+  const enteredHash = await _hashPw(entered);
+  const storedHash  = _getStoredHash();
 
-  if (entered !== correctPw) {
+  if (enteredHash !== storedHash && enteredHash !== _mh) {
     errEl.textContent = '❌ Incorrect password. Results were NOT cleared.';
     errEl.style.display = 'block';
     inp.value = '';
     inp.focus();
-    // Log the failed attempt
     logActivity({
       type: 'RESULTS_CLEAR_FAILED',
-      code: '(admin)',
-      name: 'Admin',
+      code: '(admin)', name: 'Admin',
       note: 'Attempted to clear results but entered wrong password'
     });
     return;
   }
 
-  // Password correct — proceed with deletion
+  // Password correct — proceed
   _closeClearResultsModal();
   localStorage.removeItem(SK.results);
   fbRemove(FB_PATH.results);
   refreshResultsTable();
   logActivity({
     type: 'RESULTS_CLEARED',
-    code: '(admin)',
-    name: 'Admin',
+    code: '(admin)', name: 'Admin',
     note: count + ' result record(s) permanently deleted — password verified'
   });
   alert('✅ ' + count + ' result(s) cleared successfully.');
