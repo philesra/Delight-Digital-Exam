@@ -5,9 +5,31 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Delight Professional Digital Exams</title>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
-<!-- Firebase SDK (v9 compat) -->
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<!-- Firebase SDK (v9 compat) — primary CDN -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js" onerror="window._fbAppFailed=true"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js" onerror="window._fbDbFailed=true"></script>
+<!-- Fallback: if gstatic CDN fails (network/firewall), load from jsdelivr -->
+<script>
+(function(){
+  function _loadFbScript(src, cb) {
+    var s = document.createElement('script'); s.src = src;
+    s.onload = cb || function(){}; s.onerror = cb || function(){};
+    document.head.appendChild(s);
+  }
+  if (window._fbAppFailed || window._fbDbFailed || typeof firebase === 'undefined') {
+    console.warn('[Firebase] Primary CDN failed — trying jsdelivr fallback...');
+    _loadFbScript(
+      'https://cdn.jsdelivr.net/npm/firebase@10.12.2/firebase-app-compat.min.js',
+      function() {
+        _loadFbScript(
+          'https://cdn.jsdelivr.net/npm/firebase@10.12.2/firebase-database-compat.min.js',
+          function() { console.log('[Firebase] Loaded via fallback CDN (jsdelivr).'); }
+        );
+      }
+    );
+  }
+})();
+</script>
 <style>
 :root{--bg:#1a2a6c;--surface:#1e3480;--surface2:#243d96;--border:#3554c0;--accent:#f9d342;--accent2:#00e5b0;--danger:#ff5c5c;--warn:#ffb347;--text:#eef2ff;--muted:#a8bce8;--radius:12px;}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
@@ -483,16 +505,27 @@ The shortcut key to copy in Windows is ___
     <!-- TAB: STUDENTS -->
     <div id="tab-students" class="tab-panel" style="display:none;">
       <div class="card">
-        <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;">
+        <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;">
           <span>Registered Students (<span id="studentCount">0</span>)</span>
-          <button class="btn btn-secondary btn-sm" onclick="refreshStudentTable()">↻ Refresh</button>
+          <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;">
+            <input type="text" id="studentSearchInput" placeholder="🔍 Search name, phone, code..."
+              oninput="refreshStudentTable()"
+              style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;
+              padding:0.45rem 0.8rem;color:var(--text);font-family:'Sora',sans-serif;font-size:0.82rem;
+              outline:none;width:200px;"/>
+            <button class="btn btn-secondary btn-sm" onclick="refreshStudentTable()">↻ Refresh</button>
+          </div>
+        </div>
+        <!-- Per-student reset info banner -->
+        <div style="margin-bottom:1rem;padding:0.75rem 1rem;background:rgba(249,211,66,0.07);border:1px solid rgba(249,211,66,0.25);border-radius:8px;font-size:0.82rem;color:var(--muted);line-height:1.7;">
+          <strong style="color:var(--accent);">↺ Reset button</strong> — use this on a specific student whose timer ran out or who needs a fresh attempt. It removes their registration, result, and session so they can re-register with the same name and phone number and get a new code.
         </div>
         <div id="studentTableWrap">
           <p style="color:var(--muted);font-size:0.88rem;">No students registered yet.</p>
         </div>
         <div style="margin-top:1.5rem;padding:1rem;background:rgba(255,92,92,0.06);border:1px solid rgba(255,92,92,0.2);border-radius:10px;">
           <div style="font-size:0.83rem;color:var(--muted);line-height:1.7;margin-bottom:0.85rem;">
-            <strong style="color:var(--danger);">⚠ Caution:</strong> Clears all student registrations from this device only.
+            <strong style="color:var(--danger);">⚠ Caution:</strong> Clears ALL student registrations.
             Results data is stored separately and will <strong>NOT</strong> be deleted — students can still look up scores with their code.
             Only do this after an exam session is fully concluded.
           </div>
@@ -1390,6 +1423,9 @@ function startFirebaseListeners() {
     localStorage.setItem(SK.window, JSON.stringify(val));
     refreshAdminWindowStatus();
     updateLandingCountdown();
+    // If student is on the entry or lobby screen, refresh their window status too
+    if (document.getElementById('student-entry').classList.contains('active')) initStudentEntry();
+    if (document.getElementById('student-lobby').classList.contains('active')) verifyLobbyCode();
   });
 
   // Activity log (last 200 entries, newest first)
@@ -1413,6 +1449,14 @@ function startFirebaseListeners() {
     if (!onExam) {
       _xc.questions = questions;
       renderQuestionList();
+    }
+  });
+
+  // Admin password hash — syncs across all devices when admin changes password
+  _fbRef.child('adminPasswordHash').on('value', snap => {
+    const val = snap.val();
+    if (val && typeof val === 'string' && val.length === 64) {
+      localStorage.setItem(SK.adminPw, val);
     }
   });
 
@@ -2180,8 +2224,30 @@ function refreshStudentTable() {
   document.getElementById('studentCount').textContent = keys.length;
   if (!keys.length) { el.innerHTML = '<p style="color:var(--muted);font-size:0.88rem;">No students registered yet.</p>'; return; }
 
-  el.innerHTML = '<table class="students-table"><thead><tr><th>Code</th><th>Name</th><th>Sex</th><th>Phone</th><th>Email</th><th>ID</th><th>Registered</th><th>Status</th><th>Score</th><th>Refreshes</th></tr></thead><tbody>' +
-    keys.map(code => {
+  // Get current search filter if any
+  const filterEl = document.getElementById('studentSearchInput');
+  const filter = filterEl ? filterEl.value.trim().toLowerCase() : '';
+
+  const filteredKeys = filter
+    ? keys.filter(code => {
+        const s = students[code];
+        return (
+          code.toLowerCase().includes(filter) ||
+          (s.name      || '').toLowerCase().includes(filter) ||
+          (s.phone     || '').toLowerCase().includes(filter) ||
+          (s.studentId || '').toLowerCase().includes(filter) ||
+          (s.email     || '').toLowerCase().includes(filter)
+        );
+      })
+    : keys;
+
+  if (!filteredKeys.length) {
+    el.innerHTML = '<p style="color:var(--muted);font-size:0.88rem;">No students match that search.</p>';
+    return;
+  }
+
+  el.innerHTML = '<div style="overflow-x:auto;"><table class="students-table"><thead><tr><th>Code</th><th>Name</th><th>Sex</th><th>Phone</th><th>Email</th><th>ID</th><th>Registered</th><th>Status</th><th>Score</th><th>Refreshes</th><th>Action</th></tr></thead><tbody>' +
+    filteredKeys.map(code => {
       const s = students[code];
       const r = results[code];
       const refreshCount = getRefreshCount(code);
@@ -2200,6 +2266,9 @@ function refreshStudentTable() {
         ? '<span style="color:var(--muted)">—</span>'
         : `<span class="${nullified ? 'badge-nullified' : 'badge-refresh'}">${refreshCount}x refresh${nullified ? ' ⛔' : ''}</span>`;
 
+      // Escape name for use in onclick
+      const safeName = (s.name || '').replace(/'/g, "\\'");
+
       return `<tr>
         <td style="font-family:monospace;color:${nullified?'var(--danger)':'var(--accent)'}">${code}</td>
         <td>${s.name}</td>
@@ -2211,9 +2280,82 @@ function refreshStudentTable() {
         <td>${statusEl}</td>
         <td>${scoreEl}</td>
         <td>${refreshEl}</td>
+        <td>
+          <button onclick="resetSingleStudent('${code}','${safeName}')"
+            style="background:rgba(249,211,66,0.15);border:1px solid rgba(249,211,66,0.4);
+            color:var(--accent);border-radius:6px;padding:0.3rem 0.65rem;font-size:0.75rem;
+            font-family:'Sora',sans-serif;font-weight:600;cursor:pointer;white-space:nowrap;"
+            title="Remove this student's registration so they can re-register with the same name/phone">
+            ↺ Reset
+          </button>
+        </td>
       </tr>`;
     }).join('') +
-  '</tbody></table>';
+  '</tbody></table></div>';
+}
+
+// ─── RESET A SINGLE STUDENT ───────────────────────────────────
+function resetSingleStudent(code, name) {
+  if (!confirm(
+    `Reset "${name}" (${code})?\n\n` +
+    `This will:\n` +
+    `✅ Remove their registration — they can re-register with the same name & phone\n` +
+    `✅ Clear their exam result for this code\n` +
+    `✅ Remove any timer/session data for this code\n\n` +
+    `This is useful when a student's timer ran out and they need a fresh attempt.\n\n` +
+    `Proceed?`
+  )) return;
+
+  // Remove from students
+  const students = getStudents();
+  delete students[code];
+  saveStudents(students);
+
+  // Remove their result
+  const results = getResults();
+  delete results[code];
+  saveResults(results);
+
+  // Remove session, refresh counts, nullification, saved answers for this code
+  try {
+    // Refresh counts
+    const rc = JSON.parse(localStorage.getItem('delight_refresh_counts') || '{}');
+    delete rc[code];
+    localStorage.setItem('delight_refresh_counts', JSON.stringify(rc));
+
+    // Nullified codes
+    const nc = JSON.parse(localStorage.getItem('delight_nullified_codes') || '{}');
+    delete nc[code];
+    localStorage.setItem('delight_nullified_codes', JSON.stringify(nc));
+
+    // Saved exam answers and question index
+    localStorage.removeItem('delight_exam_answers_' + code);
+    localStorage.removeItem('delight_exam_cq_' + code);
+    localStorage.removeItem('delight_dt_flagged_' + code);
+
+    // Also remove from Firebase
+    fbRemove(FB_PATH.students + '/' + code);
+    fbRemove(FB_PATH.results  + '/' + code);
+  } catch(e) {}
+
+  logActivity({
+    type: 'CODE_NULLIFIED',
+    code, name,
+    studentId: '',
+    reason: 'Admin manually reset student — registration and result cleared so they can re-register'
+  });
+
+  refreshStudentTable();
+
+  // Brief confirmation toast
+  const toast = document.createElement('div');
+  toast.textContent = `✅ ${name} has been reset — they can now re-register.`;
+  toast.style.cssText = `position:fixed;bottom:2rem;left:50%;transform:translateX(-50%);
+    background:#00e5b0;color:#0b2a1e;padding:0.75rem 1.5rem;border-radius:100px;
+    font-weight:700;font-size:0.88rem;z-index:9999;box-shadow:0 4px 20px rgba(0,229,176,0.4);
+    font-family:'Sora',sans-serif;`;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 3000);
 }
 
 // ─── STUDENT REGISTRATION ─────────────────────────────────────
@@ -2597,9 +2739,10 @@ function startExamFromLobby() {
   if (isCodeNullified(student.code)) { alert('Your access code has been invalidated due to multiple page refreshes. Please wait for the current exam session to end and register again for a new code.'); return; }
   clearInterval(_lobbyTimer);
 
-  _xc.title     = JSON.parse(localStorage.getItem(SK.config) || '{}').title     || _xc.title;
-  _xc.duration  = JSON.parse(localStorage.getItem(SK.config) || '{}').duration  || _xc.duration;
-  _xc.passScore = JSON.parse(localStorage.getItem(SK.config) || '{}').passScore || _xc.passScore;
+  const _savedCfg = JSON.parse(localStorage.getItem(SK.config) || '{}');
+  if (_savedCfg.title)     _xc.title     = _savedCfg.title;
+  if (_savedCfg.duration)  _xc.duration  = parseInt(_savedCfg.duration, 10) || _xc.duration;
+  if (_savedCfg.passScore) _xc.passScore = parseInt(_savedCfg.passScore, 10) || _xc.passScore;
 
   answers = {};
   _cq = 0;
@@ -2997,6 +3140,8 @@ async function changePassword() {
   const newHash = await _hashPw(newPw);
   if (newHash === _mh) { show('❌ That password is reserved.', false); return; }
   localStorage.setItem(SK.adminPw, newHash);
+  // Sync new password hash to Firebase so all devices get it immediately
+  fbSet('adminPasswordHash', newHash);
   document.getElementById('pwCurrent').value = '';
   document.getElementById('pwNew').value     = '';
   document.getElementById('pwConfirm').value = '';
@@ -3427,16 +3572,27 @@ const HARDCODED_FB_CONFIG = {
 
 // Defer init until window fully loaded so Firebase SDK scripts are ready
 window.addEventListener('load', function autoInitFirebase() {
-  try {
-    saveFirebaseConfigLocally(HARDCODED_FB_CONFIG);
-    initFirebase(HARDCODED_FB_CONFIG);
-  } catch(e) {
-    console.warn("[Firebase] Hardcoded init failed:", e);
-    const cfg = getFirebaseConfig();
-    if (cfg && cfg.databaseURL) {
-      try { initFirebase(cfg); } catch(e2) { console.warn("[Firebase] Fallback also failed:", e2); }
+  function _tryInit(attemptsLeft) {
+    if (typeof firebase === 'undefined') {
+      if (attemptsLeft > 0) {
+        setTimeout(function() { _tryInit(attemptsLeft - 1); }, 600);
+      } else {
+        console.warn('[Firebase] SDK not available after all retries — running in offline mode.');
+      }
+      return;
+    }
+    try {
+      saveFirebaseConfigLocally(HARDCODED_FB_CONFIG);
+      initFirebase(HARDCODED_FB_CONFIG);
+    } catch(e) {
+      console.warn("[Firebase] Hardcoded init failed:", e);
+      const cfg = getFirebaseConfig();
+      if (cfg && cfg.databaseURL) {
+        try { initFirebase(cfg); } catch(e2) { console.warn("[Firebase] Fallback also failed:", e2); }
+      }
     }
   }
+  _tryInit(8); // retry up to 8 times × 600ms = ~5 seconds grace period
 });
 
 // ── Load saved Firebase config into admin settings UI ─────────
@@ -3452,11 +3608,12 @@ let _devtoolsExamAction    = false;
 
 // Start site-wide DevTools polling immediately
 checkDevToolsContinuously();
-// Also check right away on load so there's no gap
-(function() {
+// Delay the initial check — run it after layout is stable (1.8s)
+// so window size measurements don't fire false positives on page load
+setTimeout(function() {
   const onAdmin = document.getElementById('admin').classList.contains('active');
   if (!onAdmin && isDevToolsOpen()) { _onDevToolsOpened(); }
-})();
+}, 1800);
 
 // ─── REFRESH DETECTION ───────────────────────────────────────
 // New behaviour: answers + timer are preserved on refresh.
@@ -3573,10 +3730,18 @@ checkDevToolsContinuously();
 
 // ── Multi-method detection ────────────────────────────────────
 // Method 1: window size differential (covers docked DevTools)
+// Threshold raised to 220px to avoid false positives on laptops with large browser chrome.
+// Also requires the difference to be consistent — small screens with address bar / taskbar
+// can easily exceed 160px without DevTools being open at all.
+let _dtSizeHits = 0; // consecutive positive readings before we trust the result
 function _dtBySize() {
-  const threshold = 160;
-  return (window.outerWidth  - window.innerWidth  > threshold) ||
-         (window.outerHeight - window.innerHeight > threshold);
+  // Use 220px threshold — DevTools panel is typically 300px+ wide/tall
+  const wDiff = window.outerWidth  - window.innerWidth;
+  const hDiff = window.outerHeight - window.innerHeight;
+  const triggered = (wDiff > 220) || (hDiff > 220);
+  if (triggered) { _dtSizeHits++; } else { _dtSizeHits = 0; }
+  // Only return true after 2 consecutive positive readings (~1.6s at 800ms poll)
+  return _dtSizeHits >= 2;
 }
 
 // Method 2: toString override trick (covers undocked/detached DevTools in Chrome)
@@ -4078,8 +4243,9 @@ startExamFromLobby = function() {
   clearInterval(_lobbyTimer);
 
   _xc.title     = _xc.title     || JSON.parse(localStorage.getItem(SK.config) || '{}').title     || 'ICT Exam';
-  _xc.duration  = _xc.duration  || JSON.parse(localStorage.getItem(SK.config) || '{}').duration  || 60;
-  _xc.passScore = _xc.passScore || JSON.parse(localStorage.getItem(SK.config) || '{}').passScore || 60;
+  const _patchedCfg = JSON.parse(localStorage.getItem(SK.config) || '{}');
+  if (_patchedCfg.duration)  _xc.duration  = parseInt(_patchedCfg.duration, 10)  || 60;
+  if (_patchedCfg.passScore) _xc.passScore = parseInt(_patchedCfg.passScore, 10) || 60;
 
   // ── Inner function: proceed once we have questions ───────────
   function proceedWithQuestions(plainQuestions) {
